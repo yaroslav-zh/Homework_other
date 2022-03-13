@@ -1,12 +1,10 @@
 package online.zhimanov.covid.demo.service;
-
 import online.zhimanov.covid.demo.models.LocationStats;
 import org.apache.commons.csv.CSVFormat;
 import org.apache.commons.csv.CSVRecord;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.web.bind.annotation.DeleteMapping;
-
 import javax.annotation.PostConstruct;
 import java.io.FileReader;
 import java.io.IOException;
@@ -21,14 +19,22 @@ import java.util.List;
 
 @Service
 public class CoronaVirusDataService {
-
     private static String VIRUS_DATA_URL = "https://raw.githubusercontent.com/CSSEGISandData/COVID-19/master/csse_covid_19_data/csse_covid_19_time_series/time_series_covid19_confirmed_global.csv";
-
     private List<LocationStats> allStats = new ArrayList<>();
+
+    public List<LocationStats> getAllStats() {
+        return allStats;
+    }
+
+    public void setAllStats(List<LocationStats> allStats) {
+        this.allStats = allStats;
+    }
+
     @PostConstruct
     @Deprecated
     @Scheduled(cron = "* * 1 * * *")
     public void fetchVirusData() throws IOException, InterruptedException {
+        List<LocationStats> newStats = new ArrayList<>();
         HttpClient client = HttpClient.newHttpClient();
         HttpRequest request = HttpRequest.newBuilder()
                 .uri(URI.create(VIRUS_DATA_URL))
@@ -37,10 +43,18 @@ public class CoronaVirusDataService {
         StringReader csvBodyReader = new StringReader(httpResponse.body());
         Iterable<CSVRecord> records = CSVFormat.DEFAULT.withFirstRecordAsHeader().parse(csvBodyReader);
         for (CSVRecord record : records) {
+            LocationStats locationStats = new LocationStats();
+               locationStats.setState(record.get("Province/State"));
+               locationStats.setCountry(record.get("Country/Region"));
+            int latestCases = Integer.parseInt(record.get(record.size() - 1));
+            int prevDayCases = Integer.parseInt(record.get(record.size() - 2));
+            locationStats.setLatestTotalCases(latestCases);
+            locationStats.setDiffFromPrevDay(latestCases - prevDayCases);
+            newStats.add(locationStats);
+        }
+        this.allStats = newStats;
             String state = record.get("Province/State");
             System.out.println(state);
         }
-
-
     }
 }
